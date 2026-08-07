@@ -1,0 +1,44 @@
+{
+  "name": "theme-aura",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "2.1.2",
+  "publisher": "vscode",
+  "license": "MIT",
+  "engines": {
+    "vscode": "*"
+  },
+  "categories": ["Themes"],
+  "contributes": {
+    "themes": [
+      {
+        "id": "Aura Dark",
+        "label": "%auraDarkThemeLabel%",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aura-dark-color-theme.json"
+      },
+      {
+        "id": "Aura Dark (Soft Text)",
+        "label": "%auraDarkSoftTextThemeLabel%",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aura-dark-soft-text-color-theme.json"
+      },
+      {
+        "id": "Aura Soft Dark",
+        "label": "%auraSoftDarkThemeLabel%",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aura-soft-dark-color-theme.json"
+      },
+      {
+        "id": "Aura Soft Dark (Soft Text)",
+        "label": "%auraSoftDarkSoftTextThemeLabel%",
+        "uiTheme": "vs-dark",
+        "path": "./themes/aura-soft-dark-soft-text-color-theme.json"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/vscode.git"
+  }
+}

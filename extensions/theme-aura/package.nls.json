@@ -1,0 +1,8 @@
+{
+	"displayName": "Aura Theme",
+	"description": "Aura theme for Visual Studio Code",
+	"auraDarkThemeLabel": "Aura Dark",
+	"auraDarkSoftTextThemeLabel": "Aura Dark (Soft Text)",
+	"auraSoftDarkThemeLabel": "Aura Soft Dark",
+	"auraSoftDarkSoftTextThemeLabel": "Aura Soft Dark (Soft Text)"
+}
