@@ -11,16 +11,15 @@ cask "dex" do
 
   url "https://github.com/0sage/dex/releases/download/v#{version}/Dex-darwin-arm64-#{version}.zip"
   name "Dex"
-  desc "macOS-only VS Code fork: files left, editor centre, terminal right"
+  desc "Code editor: files left, editor centre, terminal right"
   homepage "https://github.com/0sage/dex"
 
-  depends_on macos: ">= :big_sur"
+  depends_on macos: :big_sur
   depends_on arch: :arm64
 
+  # The binary is the CLI shipped inside the bundle, so `dex .` works from a
+  # terminal. It is named after product.json's applicationName, set to `dex`.
   app "Dex.app"
-
-  # The CLI shipped inside the bundle, so `dex .` works from a terminal. It is
-  # named after product.json's applicationName, which this fork sets to `dex`.
   binary "#{appdir}/Dex.app/Contents/Resources/app/bin/dex"
 
   zap trash: [
