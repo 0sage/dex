@@ -1,0 +1,135 @@
+name: Release
+
+# Builds the production Dex.app for macOS arm64 and attaches it to a GitHub
+# Release. Triggered by pushing a v* tag, or manually from the Actions tab.
+#
+#   git tag v1.126.0 && git push dex v1.126.0
+#
+# The release asset is a zip of Dex.app plus a .sha256 file. Casks/dex.rb reads
+# the zip; see that file for the brew install path.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and release (e.g. v1.126.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # macos-15 runners are Apple Silicon, which is what Dex targets. Building
+    # arm64 on an arm64 host avoids cross-compilation entirely.
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # the cask-update step switches to main and pushes, which a shallow
+          # tag checkout cannot do
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          # preinstall.ts rejects any major other than the one in .nvmrc
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        env:
+          # skips the Electron re-verification that preLaunch does on every run
+          VSCODE_SKIP_PRELAUNCH: '1'
+
+      - name: Build Dex.app
+        run: npm run gulp vscode-darwin-arm64-min
+        env:
+          NODE_OPTIONS: '--max-old-space-size=8192'
+          BUILD_SOURCEVERSION: ${{ github.sha }}
+
+      - name: Ad-hoc sign
+        # arm64 macOS refuses to launch a binary with no signature at all. This
+        # is not notarization: the app is still unsigned as far as Gatekeeper is
+        # concerned, which is why the cask installs with --no-quarantine.
+        run: |
+          APP="../VSCode-darwin-arm64/Dex.app"
+          codesign --force --deep --sign - "$APP"
+          codesign -dv "$APP" 2>&1 | head -5
+
+      - name: Package
+        id: package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NAME="Dex-darwin-arm64-${VERSION}.zip"
+          cd ../VSCode-darwin-arm64
+          # ditto preserves symlinks, resource forks and the signature; `zip`
+          # does not, and a zip-round-tripped .app fails to launch
+          ditto -c -k --sequesterRsrc --keepParent Dex.app "$NAME"
+          shasum -a 256 "$NAME" | tee "$NAME.sha256"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "path=$(pwd)/$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the packaged app launches
+        run: |
+          cd ../VSCode-darwin-arm64
+          rm -rf verify && mkdir verify
+          ditto -x -k "${{ steps.package.outputs.name }}" verify
+          # --version exits immediately and needs no display, so it is a real
+          # check that the bundle is intact and the binary runs
+          verify/Dex.app/Contents/Resources/app/bin/dex --version
+
+      - name: Point the cask at this release
+        # The tap lives in this repo, so the cask has to be updated on the
+        # default branch — not on the tag — for `brew install` to see it.
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA=$(shasum -a 256 "${{ steps.package.outputs.path }}" | cut -d' ' -f1)
+
+          git fetch origin main
+          git checkout main
+
+          sed -i '' -e "s/^  version \".*\"$/  version \"${VERSION}\"/" \
+                    -e "s/^  sha256 .*$/  sha256 \"${SHA}\"/" Casks/dex.rb
+          grep -E '^  (version|sha256)' Casks/dex.rb
+
+          if git diff --quiet Casks/dex.rb; then
+            echo "cask already current"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git commit -q Casks/dex.rb -m "Point cask at ${VERSION}"
+          git push origin main
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Dex ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          body: |
+            macOS build of Dex for Apple Silicon.
+
+            ```
+            brew tap 0sage/dex https://github.com/0sage/dex.git
+            brew install --cask --no-quarantine dex
+            ```
+
+            `--no-quarantine` is required: the app is ad-hoc signed, not
+            notarized with an Apple Developer certificate, so Gatekeeper would
+            otherwise refuse to open it.
+          files: |
+            ${{ steps.package.outputs.path }}
+            ${{ steps.package.outputs.path }}.sha256

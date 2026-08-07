@@ -20,6 +20,17 @@ Windows and Linux packaging — resources, gulpfiles, and all non-arm64 build ta
 
 Kept: `test/unit` (via `scripts/test.sh`) and `test/integration/electron/testrunner`, which 11 built-in extensions import.
 
+## Install
+
+```bash
+brew tap 0sage/dex https://github.com/0sage/dex.git
+brew install --cask --no-quarantine dex
+```
+
+`--no-quarantine` is required. Releases are ad-hoc signed, not notarized with an Apple Developer certificate, so Gatekeeper refuses to open the app without it.
+
+Pushing a `v*` tag builds `Dex.app` on an Apple Silicon runner, attaches the zip to a GitHub Release, and repoints `Casks/dex.rb` at it — this repo is its own Homebrew tap.
+
 ## Build
 
 Requires Node **24.15.0** (see `.nvmrc`) — `preinstall` rejects other major versions.
