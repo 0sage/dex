@@ -24,10 +24,10 @@ Kept: `test/unit` (via `scripts/test.sh`) and `test/integration/electron/testrun
 
 ```bash
 brew tap 0sage/dex https://github.com/0sage/dex.git
-brew install --cask --no-quarantine dex
+brew install --cask dex
 ```
 
-`--no-quarantine` is required. Releases are ad-hoc signed, not notarized with an Apple Developer certificate, so Gatekeeper refuses to open the app without it.
+Releases are ad-hoc signed, not notarized with an Apple Developer certificate, so Gatekeeper rejects them while the quarantine flag is set. The cask strips that flag in a `preflight` hook, while the app is still staged — once it is in `/Applications`, macOS 15 requires App Management permission to modify the bundle and `xattr` fails with EPERM. Homebrew 6 removed `--no-quarantine`, so the hook is what makes a plain `brew install` work.
 
 Pushing a `v*` tag builds `Dex.app` on an Apple Silicon runner, attaches the zip to a GitHub Release, and repoints `Casks/dex.rb` at it — this repo is its own Homebrew tap.
 
