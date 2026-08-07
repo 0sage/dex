@@ -62,7 +62,8 @@ jobs:
       - name: Ad-hoc sign
         # arm64 macOS refuses to launch a binary with no signature at all. This
         # is not notarization: the app is still unsigned as far as Gatekeeper is
-        # concerned, which is why the cask installs with --no-quarantine.
+        # concerned, which is why the cask strips the quarantine flag in its
+        # preflight hook.
         run: |
           APP="../VSCode-darwin-arm64/Dex.app"
           codesign --force --deep --sign - "$APP"
@@ -124,12 +125,12 @@ jobs:
 
             ```
             brew tap 0sage/dex https://github.com/0sage/dex.git
-            brew install --cask --no-quarantine dex
+            brew install --cask dex
             ```
 
-            `--no-quarantine` is required: the app is ad-hoc signed, not
-            notarized with an Apple Developer certificate, so Gatekeeper would
-            otherwise refuse to open it.
+            The app is ad-hoc signed, not notarized with an Apple Developer
+            certificate, so Gatekeeper would refuse to open it while the
+            quarantine flag is set. The cask clears that flag during install.
           files: |
             ${{ steps.package.outputs.path }}
             ${{ steps.package.outputs.path }}.sha256
