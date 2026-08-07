@@ -7,7 +7,7 @@
 # tagged build, so this file always points at the latest release.
 cask "dex" do
   version "1.126.0"
-  sha256 :no_check
+  sha256 "0cefe4844ffad4ed952335753b595cc5681ca7bca4de204aff62720f2c24881d"
 
   url "https://github.com/0sage/dex/releases/download/v#{version}/Dex-darwin-arm64-#{version}.zip"
   name "Dex"
