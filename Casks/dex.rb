@@ -186,9 +186,9 @@ cask "dex" do
     WFLOW
 
     # Registering the workflow is not enough: Finder hides a service from the
-    # context menu unless pbs's own preferences opt it in. Every service that
-    # shows up under Quick Actions has an NSServicesStatus entry enabling
-    # ContextMenu, so write ours too.
+    # context menu unless pbs's own preferences opt it in. This entry is
+    # required, not cosmetic — deleting it makes the Quick Action disappear even
+    # though the workflow is still on disk and still registered with pbs.
     #
     # The key contains "(null) - ", which both `defaults` (parses it as a value)
     # and PlistBuddy (splits on the spaces and colons) mangle. plutil's -insert
@@ -208,11 +208,13 @@ cask "dex" do
                                       print_stderr: false
     system_command "/usr/bin/plutil", args: [
       "-insert", key, "-xml",
+      # Booleans, not integers: that is what macOS writes for the services it
+      # manages itself, and `defaults read` renders true as 1 either way.
       "<dict><key>presentation_modes</key><dict>" \
-      "<key>ContextMenu</key><integer>1</integer>" \
-      "<key>FinderPreview</key><integer>1</integer>" \
-      "<key>ServicesMenu</key><integer>1</integer>" \
-      "<key>TouchBar</key><integer>1</integer>" \
+      "<key>ContextMenu</key><true/>" \
+      "<key>FinderPreview</key><true/>" \
+      "<key>ServicesMenu</key><true/>" \
+      "<key>TouchBar</key><true/>" \
       "</dict></dict>", prefs
     ]
     system_command "/usr/bin/defaults", args: ["import", "pbs", prefs]
