@@ -45,7 +45,11 @@ cask "dex" do
   # available to us: the only public API for that is a FIFinderSync extension,
   # which macOS refuses to load unless it is notarized. Dex is ad-hoc signed, so
   # Quick Actions and the Services menu are as far up as it can go.
-  service_path = "#{Dir.home}/Library/Services/Open in Dex.workflow"
+  #
+  # service_name is the menu label and also half of the NSServicesStatus
+  # preferences key, so the two have to agree — keep it in one place.
+  service_name = "Open in Dex"
+  service_path = "#{Dir.home}/Library/Services/#{service_name}.workflow"
 
   postflight do
     require "fileutils"
@@ -63,7 +67,7 @@ cask "dex" do
       \t\t\t<key>NSBackgroundColorName</key><string>background</string>
       \t\t\t<key>NSIconName</key><string>NSActionTemplate</string>
       \t\t\t<key>NSMenuItem</key>
-      \t\t\t<dict><key>default</key><string>Open in Dex</string></dict>
+      \t\t\t<dict><key>default</key><string>#{service_name}</string></dict>
       \t\t\t<key>NSMessage</key><string>runWorkflowAsService</string>
       \t\t\t<key>NSRequiredContext</key>
       \t\t\t<dict><key>NSApplicationIdentifier</key><string>com.apple.finder</string></dict>
@@ -181,15 +185,67 @@ cask "dex" do
       </plist>
     WFLOW
 
-    # Without this the entry does not show up until the next login.
+    # Registering the workflow is not enough: Finder hides a service from the
+    # context menu unless pbs's own preferences opt it in. Every service that
+    # shows up under Quick Actions has an NSServicesStatus entry enabling
+    # ContextMenu, so write ours too.
+    #
+    # The key contains "(null) - ", which both `defaults` (parses it as a value)
+    # and PlistBuddy (splits on the spaces and colons) mangle. plutil's -insert
+    # takes it literally, so go through an exported copy and import it back —
+    # editing ~/Library/Preferences/pbs.plist directly would be overwritten by
+    # cfprefsd, which caches it.
+    prefs = "#{staged_path}/pbs-services.plist"
+    system_command "/usr/bin/defaults", args: ["export", "pbs", prefs]
+    key = "NSServicesStatus.(null) - #{service_name} - runWorkflowAsService"
+    # -remove first so reinstalling does not fail on an existing key. On a first
+    # install there is nothing to remove, so discard the output too — otherwise
+    # plutil's "No value to remove" lands in the middle of a successful install
+    # and reads like a failure.
+    system_command "/usr/bin/plutil", args:         ["-remove", key, prefs],
+                                      must_succeed: false,
+                                      print_stdout: false,
+                                      print_stderr: false
+    system_command "/usr/bin/plutil", args: [
+      "-insert", key, "-xml",
+      "<dict><key>presentation_modes</key><dict>" \
+      "<key>ContextMenu</key><integer>1</integer>" \
+      "<key>FinderPreview</key><integer>1</integer>" \
+      "<key>ServicesMenu</key><integer>1</integer>" \
+      "<key>TouchBar</key><integer>1</integer>" \
+      "</dict></dict>", prefs
+    ]
+    system_command "/usr/bin/defaults", args: ["import", "pbs", prefs]
+    FileUtils.rm(prefs)
+
+    # Without these the entry does not show up until the next login: pbs caches
+    # the service list, and Finder caches the menu built from it.
     system_command "/System/Library/CoreServices/pbs", args: ["-flush"]
+    system_command "/usr/bin/killall", args:         ["-HUP", "Finder"],
+                                       must_succeed: false,
+                                       print_stdout: false,
+                                       print_stderr: false
   end
 
   uninstall_postflight do
     require "fileutils"
 
     FileUtils.rm_r service_path, force: true
+
+    # Drop the preferences entry too, so an uninstall leaves nothing behind.
+    prefs = "#{Dir.home}/Library/Caches/dex-pbs-services.plist"
+    system_command "/usr/bin/defaults", args: ["export", "pbs", prefs]
+    system_command "/usr/bin/plutil", args: [
+      "-remove", "NSServicesStatus.(null) - #{service_name} - runWorkflowAsService", prefs
+    ], must_succeed: false, print_stdout: false, print_stderr: false
+    system_command "/usr/bin/defaults", args: ["import", "pbs", prefs]
+    FileUtils.rm(prefs)
+
     system_command "/System/Library/CoreServices/pbs", args: ["-flush"]
+    system_command "/usr/bin/killall", args:         ["-HUP", "Finder"],
+                                       must_succeed: false,
+                                       print_stdout: false,
+                                       print_stderr: false
   end
 
   zap trash: [
