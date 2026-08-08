@@ -54,7 +54,15 @@ cask "dex" do
   postflight do
     require "fileutils"
 
-    FileUtils.mkdir_p "#{service_path}/Contents"
+    FileUtils.mkdir_p "#{service_path}/Contents/Resources"
+
+    # The menu item's icon. Without this NSIconName falls back to
+    # NSActionTemplate, the generic Automator badge — which is why Zed's entry
+    # looks anonymous. Copying Dex's own .icns in and naming it
+    # workflowCustomImage is what Hyper does, and it is the name Automator itself
+    # writes when you set a custom image on a service.
+    FileUtils.cp "#{appdir}/Dex.app/Contents/Resources/Dex.icns",
+                 "#{service_path}/Contents/Resources/workflowCustomImage.icns"
 
     File.write "#{service_path}/Contents/Info.plist", <<~PLIST
       <?xml version="1.0" encoding="UTF-8"?>
@@ -65,7 +73,7 @@ cask "dex" do
       \t<array>
       \t\t<dict>
       \t\t\t<key>NSBackgroundColorName</key><string>background</string>
-      \t\t\t<key>NSIconName</key><string>NSActionTemplate</string>
+      \t\t\t<key>NSIconName</key><string>workflowCustomImage</string>
       \t\t\t<key>NSMenuItem</key>
       \t\t\t<dict><key>default</key><string>#{service_name}</string></dict>
       \t\t\t<key>NSMessage</key><string>runWorkflowAsService</string>
